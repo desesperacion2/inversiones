@@ -3,26 +3,27 @@ import StockService from '../services/api.js';
 class Home {
     constructor() {
         this.portfolioData = null;
+        this.isLoading = true; // Add this line
         this.initialize();
     }
 
     async initialize() {
         await this.loadPortfolioData();
-        this.startAutoRefresh();
     }
 
     async loadPortfolioData() {
         try {
+            this.isLoading = true; // Set to true when starting to load
+            this.render(); // Render loading state
             const data = await StockService.getPortfolioData();
             this.portfolioData = this.calculatePortfolioMetrics(data);
+            this.isLoading = false; // Set to false when done loading
             this.render();
         } catch (error) {
             console.error('Error cargando datos:', error);
+            this.isLoading = false; // Set to false even if there's an error
+            this.render();
         }
-    }
-
-    startAutoRefresh() {
-        setInterval(() => this.loadPortfolioData(), 30000); // Actualiza cada 30 segundos
     }
 
     calculatePortfolioMetrics(data) {
@@ -74,6 +75,22 @@ class Home {
 
     render() {
         const mainContainer = document.getElementById('root');
+        if (this.isLoading) {
+            mainContainer.innerHTML = `
+                <div class="container mt-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <h3 class="mt-3">Cargando datos del portfolio...</h3>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
         mainContainer.innerHTML = `
             <div class="container mt-4">
                 <div class="card mb-4">

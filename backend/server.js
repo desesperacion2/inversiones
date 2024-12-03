@@ -19,9 +19,7 @@ async function getStockPrices(tickers) {
             });
 
             const price = await page.$eval('fin-streamer.livePrice span', (el) => el.innerText);
-
-            // Ajuste para manejar formato de miles y decimales
-            const priceFormatted = parseFloat(price.replace(/\./g, '').replace(',', '.'));
+            const priceFormatted = parseFloat(price.replace(/[.,]/g, '')) / 100;
             results[ticker] = priceFormatted;
         } catch (error) {
             results[ticker] = 'Error al obtener precio';
@@ -54,3 +52,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en puerto ${PORT}`);
 });
+
