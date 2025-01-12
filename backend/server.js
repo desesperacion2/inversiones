@@ -1,5 +1,5 @@
 import express from 'express';
-import puppeteer from 'puppeteer-core'; // Usa puppeteer-core, no puppeteer
+import puppeteer from 'puppeteer';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -8,7 +8,7 @@ async function getStockPrice(url) {
   const browser = await puppeteer.launch({
     headless: "new",
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    executablePath: '/usr/bin/chromium', // Ruta predeterminada de Chromium en Render
+    executablePath: puppeteer.executablePath(), // Usar el Chrome instalado por Puppeteer
   });
   try {
     const page = await browser.newPage();
