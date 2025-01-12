@@ -1,55 +1,63 @@
-const express = require('express');
-const cors = require('cors');
-const puppeteer = require('puppeteer');
+import express from 'express';
+import puppeteer from 'puppeteer';
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = 5000;
 
-async function getStockPrices(tickers) {
-    const browser = await puppeteer.launch();
+async function getStockPrice(url) {
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+  try {
     const page = await browser.newPage();
-    const results = {};
-
-    for (const ticker of tickers) {
-        try {
-            await page.goto(`https://finance.yahoo.com/quote/${ticker}/`, {
-                waitUntil: 'domcontentloaded',
-                timeout: 30000
-            });
-
-            const price = await page.$eval('fin-streamer.livePrice span', (el) => el.innerText);
-            const priceFormatted = parseFloat(price.replace(/[.,]/g, '')) / 100;
-            results[ticker] = priceFormatted;
-        } catch (error) {
-            results[ticker] = 'Error al obtener precio';
-            console.error(`Error al obtener el precio de ${ticker}:`, error.message);
-        }
-    }
-
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+    await page.goto(url, { waitUntil: 'networkidle0' });
+    
+    const price = await page.evaluate(() => {
+      const priceElement = document.querySelector('div[data-test="instrument-price-last"]');
+      return priceElement ? priceElement.textContent : 'Price not found';
+    });
+    
+    return price;
+  } catch (error) {
+    console.error('Error fetching stock price:', error);
+    return 'Error fetching price';
+  } finally {
     await browser.close();
-    return results;
+  }
 }
 
-const mockStockData = {
-    'HABITAT.SN': { shares: 54, costBasis: 810 },
-    'LIPIGAS.SN': { shares: 73, costBasis: 3600 },
-    'BCI.SN': { shares: 20, costBasis: 1200 },
-    'ZOFRI.SN': { shares: 100, costBasis: 900 }
+app.get('/prices', async (req, res) => {
+  try {
+    const stocks = {
+      habitat: 'https://www.investing.com/equities/a.f.p.-habitat',
+      lipigas: 'https://www.investing.com/equities/empresas-lipigas-sa',
+      tesla: 'https://www.investing.com/equities/tesla-motors'
+    };
+
+    const prices = {
+      habitat: await getStockPrice(stocks.habitat),
+      lipigas: await getStockPrice(stocks.lipigas),
+      tesla: await getStockPrice(stocks.tesla)
+    };
+
+    res.json(prices);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch stock prices' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+// Test the scraper
+const testScraper = async () => {
+  console.log('Testing scraper...');
+  const testUrl = 'https://www.investing.com/equities/tesla-motors';
+  const price = await getStockPrice(testUrl);
+  console.log('Tesla stock price:', price);
 };
 
-app.get('/api/portfolio', async (req, res) => {
-    try {
-        const tickers = Object.keys(mockStockData);
-        const prices = await getStockPrices(tickers);
-        res.json({ prices, holdings: mockStockData });
-    } catch (error) {
-        res.status(500).json({ error: 'Error al obtener los precios' });
-    }
-});
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`Servidor corriendo en puerto ${PORT}`);
-});
-
+testScraper();
