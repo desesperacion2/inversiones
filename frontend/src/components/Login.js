@@ -1,56 +1,99 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../services/firebaseConfig';
+import { useNavigate } from 'react-router-dom'; // Importamos useNavigate
 
-function Login() {
-    const navigate = useNavigate();
+export default function Login() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate(); // Inicializamos el hook de navegación
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        // Aquí irá la lógica de login posteriormente
-        console.log('Intento de login');
-        // Por ahora solo registramos el intento de login
-        // Posteriormente aquí irá la validación real
-    };
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-    return (
-        <div className="container-fluid vh-100 d-flex align-items-center justify-content-center bg-light">
-            <div className="card shadow" style={{ width: '350px' }}>
-                <div className="card-header bg-primary text-white">
-                    <h4 className="mb-0">Bienvenido</h4>
-                </div>
-                <div className="card-body">
-                    <p className="card-text text-muted mb-4">
-                        Ingresa a tu cuenta para ver tu portfolio
-                    </p>
-                    <form onSubmit={handleSubmit}>
-                        <div className="mb-3">
-                            <label htmlFor="email" className="form-label">Email</label>
-                            <input
-                                type="email"
-                                className="form-control"
-                                id="email"
-                                placeholder="nombre@ejemplo.com"
-                                required
-                            />
-                        </div>
-                        <div className="mb-3">
-                            <label htmlFor="password" className="form-label">Contraseña</label>
-                            <input
-                                type="password"
-                                className="form-control"
-                                id="password"
-                                required
-                            />
-                        </div>
-                        <button type="submit" className="btn btn-primary w-100">
-                            Ingresar
-                        </button>
-                    </form>
-                </div>
+    // Validar si los campos están vacíos
+    if (!username || !password) {
+      setError('Por favor ingresa un usuario y una contraseña.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('__name__', '==', username));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        setError('Usuario no encontrado');
+        return;
+      }
+
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data();
+
+      if (userData.password === password) {
+        // Login exitoso
+        navigate('/home'); // Redirigimos al componente Home
+      } else {
+        setError('Contraseña incorrecta');
+      }
+    } catch (err) {
+      setError('Error al iniciar sesión. Inténtalo nuevamente.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white p-6 rounded-lg shadow-md w-[350px]">
+        <h2 className="text-2xl font-bold text-center mb-6">Iniciar Sesión</h2>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+              Usuario
+            </label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Contraseña
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-md">
+              {error}
             </div>
-        </div>
-    );
+          )}
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md shadow-sm disabled:opacity-50"
+          >
+            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }
-
-export default Login;
-

@@ -14,4 +14,3 @@ class StockService {
 }
 
 export default StockService;
-
