@@ -6,8 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "npm install",
-    "postinstall": "./install_chrome.sh"
+    "build": "npm install"
   },
   "keywords": [],
   "author": "",
