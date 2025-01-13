@@ -5,17 +5,41 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 async function getStockPrice(url) {
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    executablePath: puppeteer.executablePath(), // Usar el Chrome instalado por Puppeteer
-  });
+  let browser;
   try {
+    const options = {
+      headless: "new",
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process'
+      ],
+    };
+
+    // Check if we're running on Render
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+
+    browser = await puppeteer.launch(options);
+    
     const page = await browser.newPage();
     await page.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     );
-    await page.goto(url, { waitUntil: 'networkidle0' });
+    
+    await page.setDefaultNavigationTimeout(60000);
+    await page.setDefaultTimeout(60000);
+    
+    await page.goto(url, { 
+      waitUntil: 'networkidle0',
+      timeout: 60000
+    });
+    
     const price = await page.evaluate(() => {
       const priceElement = document.querySelector('div[data-test="instrument-price-last"]');
       return priceElement ? priceElement.textContent : 'Price not found';
@@ -25,7 +49,9 @@ async function getStockPrice(url) {
     console.error('Error fetching stock price:', error);
     return 'Error fetching price';
   } finally {
-    await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 }
 
@@ -45,6 +71,7 @@ app.get('/prices', async (req, res) => {
 
     res.json(prices);
   } catch (error) {
+    console.error('Detailed error:', error);
     res.status(500).json({ error: 'Failed to fetch stock prices' });
   }
 });
@@ -62,3 +89,4 @@ const testScraper = async () => {
 };
 
 testScraper();
+
