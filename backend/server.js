@@ -1,5 +1,5 @@
 import express from 'express';
-import puppeteer from 'puppeteer';
+import { createBrowser } from './config.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -7,25 +7,8 @@ const PORT = process.env.PORT || 5000;
 async function getStockPrice(url) {
   let browser;
   try {
-    const options = {
-      headless: "new",
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process'
-      ],
-    };
-
-    // Check if we're running on Render
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-      options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-    }
-
-    browser = await puppeteer.launch(options);
+    console.log('Creating browser...');
+    browser = await createBrowser();
     
     const page = await browser.newPage();
     await page.setUserAgent(
@@ -35,6 +18,7 @@ async function getStockPrice(url) {
     await page.setDefaultNavigationTimeout(60000);
     await page.setDefaultTimeout(60000);
     
+    console.log(`Navigating to ${url}`);
     await page.goto(url, { 
       waitUntil: 'networkidle0',
       timeout: 60000
@@ -44,6 +28,7 @@ async function getStockPrice(url) {
       const priceElement = document.querySelector('div[data-test="instrument-price-last"]');
       return priceElement ? priceElement.textContent : 'Price not found';
     });
+    console.log(`Price found: ${price}`);
     return price;
   } catch (error) {
     console.error('Error fetching stock price:', error);
@@ -63,11 +48,13 @@ app.get('/prices', async (req, res) => {
       tesla: 'https://www.investing.com/equities/tesla-motors',
     };
 
+    console.log('Fetching stock prices...');
     const prices = {
       habitat: await getStockPrice(stocks.habitat),
       lipigas: await getStockPrice(stocks.lipigas),
       tesla: await getStockPrice(stocks.tesla),
     };
+    console.log('Prices fetched:', prices);
 
     res.json(prices);
   } catch (error) {

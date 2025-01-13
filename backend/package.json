@@ -3,24 +3,22 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "install-chrome": "apt-get update && apt-get install -y chromium",
     "start": "node server.js",
-    "build": "npm run install-chrome && npm start"
+    "build": "npm install"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "express": "^4.18.2",
+    "puppeteer": "^23.0.0",
     "axios": "^1.7.8",
     "body-parser": "^1.20.3",
     "cheerio": "^1.0.0",
     "cors": "^2.8.5",
-    "express": "^4.21.2",
-    "helmet": "^8.0.0",
-    "node-fetch": "^3.3.2",
-    "puppeteer": "^23.11.1"
+    "helmet": "^8.0.0"
   }
 }
+
