@@ -4,10 +4,10 @@ import { createBrowser } from './config.js';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-async function getStockPrice(url) {
+async function getStockPrice(url, retries = 3) {
   let browser;
   try {
-    console.log('Creating browser...');
+    console.log(`Creating browser for ${url}...`);
     browser = await createBrowser();
     
     const page = await browser.newPage();
@@ -15,23 +15,30 @@ async function getStockPrice(url) {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     );
     
-    await page.setDefaultNavigationTimeout(60000);
-    await page.setDefaultTimeout(60000);
+    await page.setDefaultNavigationTimeout(120000); // Increase timeout to 2 minutes
+    await page.setDefaultTimeout(120000);
     
     console.log(`Navigating to ${url}`);
     await page.goto(url, { 
-      waitUntil: 'networkidle0',
-      timeout: 60000
+      waitUntil: 'networkidle2',
+      timeout: 120000
     });
+    
+    // Wait for the price element to be visible
+    await page.waitForSelector('div[data-test="instrument-price-last"]', { timeout: 60000 });
     
     const price = await page.evaluate(() => {
       const priceElement = document.querySelector('div[data-test="instrument-price-last"]');
-      return priceElement ? priceElement.textContent : 'Price not found';
+      return priceElement ? priceElement.textContent.trim() : 'Price not found';
     });
-    console.log(`Price found: ${price}`);
+    console.log(`Price found for ${url}: ${price}`);
     return price;
   } catch (error) {
-    console.error('Error fetching stock price:', error);
+    console.error(`Error fetching stock price for ${url}:`, error);
+    if (retries > 0) {
+      console.log(`Retrying... (${retries} attempts left)`);
+      return getStockPrice(url, retries - 1);
+    }
     return 'Error fetching price';
   } finally {
     if (browser) {
@@ -49,11 +56,10 @@ app.get('/prices', async (req, res) => {
     };
 
     console.log('Fetching stock prices...');
-    const prices = {
-      habitat: await getStockPrice(stocks.habitat),
-      lipigas: await getStockPrice(stocks.lipigas),
-      tesla: await getStockPrice(stocks.tesla),
-    };
+    const prices = {};
+    for (const [name, url] of Object.entries(stocks)) {
+      prices[name] = await getStockPrice(url);
+    }
     console.log('Prices fetched:', prices);
 
     res.json(prices);

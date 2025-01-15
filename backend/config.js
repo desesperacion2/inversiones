@@ -11,7 +11,9 @@ export const PUPPETEER_CONFIG = {
     '--single-process',
     '--disable-gpu'
   ],
-  headless: 'new'
+  headless: 'new',
+  defaultViewport: null,
+  timeout: 120000
 };
 
 export async function createBrowser() {
