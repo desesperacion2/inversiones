@@ -1,30 +1,25 @@
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import express from 'express';
+import chromium from 'chrome-aws-lambda';
+import puppeteer from 'puppeteer-core';
 
-puppeteer.use(StealthPlugin());
-
-const app = express();
-const PORT = 5000;
+// Helper function to initialize browser
+async function getBrowser() {
+  return puppeteer.launch({
+    args: chromium.args,
+    executablePath: await chromium.executablePath,
+    headless: chromium.headless,
+    defaultViewport: { width: 1920, height: 1080 }
+  });
+}
 
 async function scrapeStockPrice(url, retries = 3) {
   let browser;
   try {
-    browser = await puppeteer.launch({
-      headless: "new",
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu'
-      ]
-    });
-
+    browser = await getBrowser();
     const page = await browser.newPage();
-    await page.setViewport({ width: 1920, height: 1080 });
+    
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
+    // Optimize page load
     await page.setRequestInterception(true);
     page.on('request', (request) => {
       if (['image', 'stylesheet', 'font'].includes(request.resourceType())) {
@@ -36,11 +31,8 @@ async function scrapeStockPrice(url, retries = 3) {
 
     await page.goto(url, { 
       waitUntil: 'networkidle2',
-      timeout: 120000 // Increased timeout to 2 minutes
+      timeout: 25000 // Reduced timeout for serverless environment
     });
-
-    // Add a delay before interacting with the page
-    await page.waitForTimeout(5000);
 
     // Handle cookie consent if present
     try {
@@ -60,7 +52,7 @@ async function scrapeStockPrice(url, retries = 3) {
     let price = null;
     for (const selector of priceSelectors) {
       try {
-        await page.waitForSelector(selector, { timeout: 10000 });
+        await page.waitForSelector(selector, { timeout: 5000 });
         price = await page.$eval(selector, element => element.textContent.trim());
         if (price) break;
       } catch (e) {
@@ -87,24 +79,24 @@ async function scrapeStockPrice(url, retries = 3) {
   }
 }
 
-app.get('/stocks', async (req, res) => {
-  try {
-    const stocks = {
-      habitat: await scrapeStockPrice('https://www.investing.com/equities/a.f.p.-habitat'),
-      tesla: await scrapeStockPrice('https://www.investing.com/equities/tesla-motors'),
-      lipigas: await scrapeStockPrice('https://www.investing.com/equities/empresas-lipigas-sa')
-    };
-    
-    res.json({
-      timestamp: new Date().toISOString(),
-      prices: stocks
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch stock prices' });
+// Serverless API handler
+export default async function handler(req, res) {
+  if (req.method === 'GET') {
+    try {
+      const stocks = {
+        habitat: await scrapeStockPrice('https://www.investing.com/equities/a.f.p.-habitat'),
+        tesla: await scrapeStockPrice('https://www.investing.com/equities/tesla-motors'),
+        lipigas: await scrapeStockPrice('https://www.investing.com/equities/empresas-lipigas-sa')
+      };
+      
+      res.status(200).json({
+        timestamp: new Date().toISOString(),
+        prices: stocks
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch stock prices' });
+    }
+  } else {
+    res.status(405).json({ error: 'Method not allowed' });
   }
-});
-
-app.listen(PORT, () => {
-  console.log(`Stock price server running on http://localhost:${PORT}`);
-  console.log('Access /stocks endpoint to get current prices');
-});
+}
