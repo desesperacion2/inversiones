@@ -7,7 +7,7 @@
     "start": "node stock-scraper.js"
   },
   "dependencies": {
-    "@sparticuz/chromium-min": "^119.0.0",
+    "@sparticuz/chromium": "^119.0.0",
     "puppeteer-core": "^19.9.0"
   }
 }

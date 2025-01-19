@@ -1,11 +1,6 @@
-import chromium from '@sparticuz/chromium-min';
+import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 
-// Configure chromium
-chromium.setHeadlessMode = true;
-chromium.setGraphicsMode = false;
-
-// Serverless handler
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -14,16 +9,19 @@ export default async function handler(req, res) {
   let browser = null;
 
   try {
-    // Launch browser with minimal configuration
+    // Launch browser with Vercel-specific configuration
     browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [...chromium.args, "--hide-scrollbars", "--disable-web-security"],
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      executablePath: await chromium.executablePath,
+      headless: true,
       ignoreHTTPSErrors: true,
     });
 
     const page = await browser.newPage();
+    
+    // Set user agent
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36');
     
     // Set a reasonable timeout
     page.setDefaultNavigationTimeout(15000);
@@ -42,7 +40,10 @@ export default async function handler(req, res) {
     async function getPrice(url, retries = 2) {
       for (let i = 0; i < retries; i++) {
         try {
-          await page.goto(url, { waitUntil: 'networkidle0' });
+          await page.goto(url, { 
+            waitUntil: 'networkidle0',
+            timeout: 15000
+          });
           
           // Try multiple selectors quickly
           const price = await page.evaluate(() => {
