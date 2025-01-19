@@ -1,3 +1,0 @@
-PUPPETEER_DOWNLOAD_PATH=/opt/render/.cache/puppeteer
-PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
-
