@@ -3,7 +3,10 @@
     "builds": [
       {
         "src": "stock-scraper.js",
-        "use": "@vercel/node"
+        "use": "@vercel/node",
+        "config": {
+          "maxDuration": 30
+        }
       }
     ],
     "routes": [
