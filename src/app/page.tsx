@@ -20,10 +20,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
+    <div className="min-h-full">
       {/* Header */}
       <header className="border-b border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
-        <div className="container mx-auto px-6 py-4">
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Mi Portafolio de Inversiones</h1>
@@ -39,7 +39,7 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
+      <div className="px-6 py-8">
         {/* Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Total Portfolio Value */}
@@ -124,7 +124,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }
