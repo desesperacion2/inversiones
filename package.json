@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
+    "bootstrap": "^5.3.8",
     "geist": "^1.5.1",
     "next": "15.5.2",
     "react": "19.1.0",
