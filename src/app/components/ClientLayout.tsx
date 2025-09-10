@@ -42,7 +42,6 @@ export default function ClientLayout({
     )
   }
 
-  // If not authenticated and on login page, show login page without sidebar
   if (!user && pathname === "/login") {
     return (
       <>
@@ -61,6 +60,9 @@ export default function ClientLayout({
     setRedirecting(true)
     router.push("/login")
   }
+
+  const activeLinkClass = "flex items-center space-x-3 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium"
+  const inactiveLinkClass = "flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
 
   return (
     <div className="flex h-screen bg-white dark:bg-black">
@@ -117,7 +119,7 @@ export default function ClientLayout({
             <li>
               <a
                 href="/"
-                className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium"
+                className={pathname === "/" ? activeLinkClass : inactiveLinkClass}
                 onClick={() => setSidebarOpen(false)}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,7 +136,7 @@ export default function ClientLayout({
             <li>
               <a
                 href="/composicion"
-                className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className={pathname === "/composicion" ? activeLinkClass : inactiveLinkClass}
                 onClick={() => setSidebarOpen(false)}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

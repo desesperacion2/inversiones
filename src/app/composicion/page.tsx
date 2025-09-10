@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import { collection, getDocs, doc, getDoc, DocumentData } from "firebase/firestore"
 import { db } from "../firebase"
 import { useAuth } from "../contexts/AuthContext"
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts"
 
 export default function Composicion() {
   const { user, isLoading: isAuthLoading } = useAuth()
@@ -114,6 +115,15 @@ export default function Composicion() {
     )
   }
 
+  // 👇 incluimos el valor CLP para mostrarlo en el tooltip
+  const chartData = portfolioPositions.map(p => ({
+    name: p.ticker,
+    value: p.percentage,
+    clpValue: p.marketValueInCLP
+  }));
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#d0ed57'];
+
   return (
     <div className="min-h-full">
       <header className="border-b border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
@@ -130,9 +140,7 @@ export default function Composicion() {
       </header>
       
       <div className="px-6 py-8">
-        {/* Usamos grid-cols-2 en pantallas grandes para poner el gráfico a la derecha */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Portfolio Positions */}
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Posiciones Actuales</h2>
             {portfolioPositions.length > 0 ? (
@@ -188,34 +196,38 @@ export default function Composicion() {
             )}
           </div>
 
-          {/* Pie Chart Placeholder */}
-          <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 rounded-lg p-6">
+          <div className="border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 rounded-lg p-6 flex flex-col items-center justify-center">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Distribución por Activo</h2>
-            <div className="flex items-center justify-center h-64 bg-gray-100 dark:bg-gray-800 rounded-lg">
-              <div className="text-center">
-                <svg
-                  className="w-16 h-16 mx-auto text-gray-400 mb-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    fill="#8884d8"
+                    label={({ name, value }) => `${name}: ${value.toFixed(2)}%`} // 👈 etiquetas en %
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(_, name, props: any) => [
+                      formatCurrency(props.payload.clpValue), // 👈 valor real en CLP
+                      name
+                    ]} 
                   />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
-                  />
-                </svg>
-                <p className="text-gray-600 dark:text-gray-400">Gráfico de distribución</p>
-                <p className="text-sm text-gray-500 dark:text-gray-500">Próximamente</p>
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-64 bg-gray-100 dark:bg-gray-800 rounded-lg w-full">
+                <p className="text-gray-600 dark:text-gray-400">Sin datos para mostrar el gráfico.</p>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
