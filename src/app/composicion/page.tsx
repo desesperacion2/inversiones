@@ -209,7 +209,7 @@ export default function Composicion() {
                     cy="50%"
                     outerRadius={100}
                     fill="#8884d8"
-                    label={({ name, value }) => `${name}: ${value.toFixed(2)}%`} // 👈 etiquetas en %
+                    label={({ name, value }) => `${name}: ${typeof value === 'number' ? value.toFixed(2) : '0.00'}%`} // 👈 etiquetas en %
                   >
                     {chartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
