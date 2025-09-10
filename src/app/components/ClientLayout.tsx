@@ -105,7 +105,7 @@ export default function ClientLayout({
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.name}</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.email || "Usuario"}</p>
               <p className="text-xs text-gray-600 dark:text-gray-400">Inversionista</p>
             </div>
           </div>

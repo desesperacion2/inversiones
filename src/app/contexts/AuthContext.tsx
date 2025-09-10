@@ -2,71 +2,64 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
+import { auth } from "../firebase"
+import {
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut,
+  User as FirebaseUser,
+} from "firebase/auth"
 
 interface User {
   id: string
-  name: string
-  email: string
+  email: string | null
 }
 
 interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<boolean>
-  logout: () => void
+  logout: () => Promise<void>
   isLoading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-// Usuario temporal para pruebas
-const TEMP_USER: User = {
-  id: "1",
-  name: "Usuario Demo",
-  email: "demo@portfolio.com",
-}
-
-// Credenciales temporales
-const TEMP_CREDENTIALS = {
-  email: "demo@portfolio.com",
-  password: "demo123",
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Verificar si hay una sesión guardada
-    const savedUser = localStorage.getItem("portfolio_user")
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
-    }
-    setIsLoading(false)
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        setUser({ id: firebaseUser.uid, email: firebaseUser.email })
+      } else {
+        setUser(null)
+      }
+      setIsLoading(false)
+    })
+
+    return () => unsubscribe()
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true)
-
-    // Simular delay de autenticación
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    if (email === TEMP_CREDENTIALS.email && password === TEMP_CREDENTIALS.password) {
-      setUser(TEMP_USER)
-      localStorage.setItem("portfolio_user", JSON.stringify(TEMP_USER))
-      setIsLoading(false)
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
       return true
+    } catch (error) {
+      console.error(error)
+      return false
     }
-
-    setIsLoading(false)
-    return false
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem("portfolio_user")
+  const logout = async () => {
+    await signOut(auth)
   }
 
-  return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
