@@ -1,5 +1,5 @@
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "./firebase";   // 🔥 corregido path
+import { db } from "./firebase";
 import ClientDashboard from "./components/ClientDashboard";
 import { headers } from "next/headers";
 
