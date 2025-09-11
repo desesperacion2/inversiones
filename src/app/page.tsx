@@ -13,11 +13,14 @@ export default async function Home() {
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
 
   try {
-    // Call both update APIs in parallel
-    const [exchangeRateResponse, usStocksResponse] = await Promise.all([
-      fetch(`${protocol}://${host}/api/update-exchange-rate`, { cache: "no-store" }),
-      fetch(`${protocol}://${host}/api/update-us-stocks`, { cache: "no-store" })
-    ]);
+    // Llama a las APIs de actualización en paralelo
+    const [exchangeRateResponse, usStocksResponse, chileStocksResponse] =
+      await Promise.all([
+        fetch(`${protocol}://${host}/api/update-exchange-rate`, { cache: "no-store" }),
+        fetch(`${protocol}://${host}/api/update-us-stocks`, { cache: "no-store" }),
+        // Llama a la nueva API de scraping para la bolsa de Chile
+        fetch(`${protocol}://${host}/api/scrap-bcs`, { cache: "no-store" }),
+      ]);
 
     const exchangeRateData = await exchangeRateResponse.json();
     if (exchangeRateData.success) {
@@ -30,9 +33,12 @@ export default async function Home() {
       }
     }
     
-    // Log the result of the US stocks update
+    // Registra los resultados de las actualizaciones de acciones
     const usStocksData = await usStocksResponse.json();
     console.log("US Stock Update Result:", usStocksData);
+
+    const chileStocksData = await chileStocksResponse.json();
+    console.log("Chile Stock Update Result:", chileStocksData);
 
   } catch (error) {
     console.error("Error al llamar a las APIs de actualización:", error);
