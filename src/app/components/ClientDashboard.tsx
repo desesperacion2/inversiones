@@ -1,15 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { collection, getDocs, DocumentData } from "firebase/firestore"
+import { collection, getDocs, doc, getDoc, DocumentData } from "firebase/firestore"
 import { db } from "../firebase"
 import { useAuth } from "../contexts/AuthContext"
 
-type ClientDashboardProps = {
-  exchangeRate: number
-}
+// Tiempo de cache en milisegundos (5 minutos)
+const CACHE_DURATION = 5 * 60 * 1000
 
-export default function ClientDashboard({ exchangeRate }: ClientDashboardProps) {
+export default function ClientDashboard() {
   const { user, isLoading: isAuthLoading } = useAuth()
   const [portfolioData, setPortfolioData] = useState({
     totalValue: 0,
@@ -17,6 +16,7 @@ export default function ClientDashboard({ exchangeRate }: ClientDashboardProps) 
     totalInvested: 0,
     gainLossPercentage: 0,
   })
+  const [exchangeRate, setExchangeRate] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -24,6 +24,59 @@ export default function ClientDashboard({ exchangeRate }: ClientDashboardProps) 
       if (user && user.id) {
         setIsLoading(true)
         try {
+          // ✅ CHECK CACHE PARA EXCHANGE RATE
+          const cachedExchangeRate = localStorage.getItem('exchangeRate')
+          const cachedExchangeRateTime = localStorage.getItem('exchangeRateTime')
+          
+          let currentExchangeRate = 1
+          
+          if (cachedExchangeRate && cachedExchangeRateTime) {
+            const cacheTime = parseInt(cachedExchangeRateTime)
+            const now = Date.now()
+            
+            if (now - cacheTime < CACHE_DURATION) {
+              currentExchangeRate = parseFloat(cachedExchangeRate)
+              setExchangeRate(currentExchangeRate)
+            } else {
+              // Cache expirado, obtener nuevo valor
+              const exchangeRateDocRef = doc(db, "exchangerate", "USD_CLP")
+              const exchangeRateDocSnap = await getDoc(exchangeRateDocRef)
+              currentExchangeRate = exchangeRateDocSnap.exists() ? exchangeRateDocSnap.data().value : 1
+              
+              // ✅ GUARDAR EN CACHE
+              localStorage.setItem('exchangeRate', currentExchangeRate.toString())
+              localStorage.setItem('exchangeRateTime', Date.now().toString())
+              setExchangeRate(currentExchangeRate)
+            }
+          } else {
+            // No hay cache, obtener valor
+            const exchangeRateDocRef = doc(db, "exchangerate", "USD_CLP")
+            const exchangeRateDocSnap = await getDoc(exchangeRateDocRef)
+            currentExchangeRate = exchangeRateDocSnap.exists() ? exchangeRateDocSnap.data().value : 1
+            
+            // ✅ GUARDAR EN CACHE
+            localStorage.setItem('exchangeRate', currentExchangeRate.toString())
+            localStorage.setItem('exchangeRateTime', Date.now().toString())
+            setExchangeRate(currentExchangeRate)
+          }
+
+          // ✅ CHECK CACHE PARA DATOS DE PORTAFOLIO
+          const cachedPortfolio = localStorage.getItem(`portfolio_${user.id}`)
+          const cachedPortfolioTime = localStorage.getItem(`portfolioTime_${user.id}`)
+          
+          if (cachedPortfolio && cachedPortfolioTime) {
+            const cacheTime = parseInt(cachedPortfolioTime)
+            const now = Date.now()
+            
+            if (now - cacheTime < CACHE_DURATION) {
+              // Usar datos cacheados
+              setPortfolioData(JSON.parse(cachedPortfolio))
+              setIsLoading(false)
+              return // ← Salir temprano, no hacer fetch
+            }
+          }
+
+          // ✅ OBTENER DATOS NUEVOS (cache expirado o no existe)
           const portfolioRef = collection(db, "users", user.id, "portfolio")
           const portfolioSnapshot = await getDocs(portfolioRef)
 
@@ -52,8 +105,8 @@ export default function ClientDashboard({ exchangeRate }: ClientDashboardProps) 
             }
 
             if (positionData.market === "US") {
-              totalValue += marketValue * exchangeRate
-              totalInvested += cost * exchangeRate
+              totalValue += marketValue * currentExchangeRate
+              totalInvested += cost * currentExchangeRate
             } else {
               totalValue += marketValue
               totalInvested += cost
@@ -66,12 +119,18 @@ export default function ClientDashboard({ exchangeRate }: ClientDashboardProps) 
             gainLossPercentage = (totalGainLoss / totalInvested) * 100
           }
 
-          setPortfolioData({
+          const newPortfolioData = {
             totalValue,
             totalGainLoss,
             totalInvested,
             gainLossPercentage,
-          })
+          }
+
+          setPortfolioData(newPortfolioData)
+
+          // ✅ GUARDAR EN CACHE
+          localStorage.setItem(`portfolio_${user.id}`, JSON.stringify(newPortfolioData))
+          localStorage.setItem(`portfolioTime_${user.id}`, Date.now().toString())
 
         } catch (error) {
           console.error("Error fetching data:", error)
@@ -81,10 +140,10 @@ export default function ClientDashboard({ exchangeRate }: ClientDashboardProps) 
       }
     }
 
-    if (!isAuthLoading && exchangeRate) {
+    if (!isAuthLoading) {
       fetchData()
     }
-  }, [user, isAuthLoading, exchangeRate])
+  }, [user, isAuthLoading])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-CL", {

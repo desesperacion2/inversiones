@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../firebase';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 
-// Define la interfaz para el resultado del scraping
 interface ScrapingResult {
   ticker: string;
   success: boolean;
@@ -10,14 +11,24 @@ interface ScrapingResult {
   price?: number;
 }
 
+// Cached variables
+let chileStocksCache: { message: string; success: boolean; results?: ScrapingResult[] } | null = null;
+let chileStocksCacheTimestamp = 0;
+const CACHE_TTL = 900000; // 5 minutos
+
 // URL base de Yahoo Finance API para acciones chilenas
 const BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/';
 const SUFFIX = '.SN';
 
 export async function GET() {
+  // Return cached data if still fresh
+  if (chileStocksCache && Date.now() - chileStocksCacheTimestamp < CACHE_TTL) {
+    console.log("Devolviendo datos de caché para Chile stocks.");
+    return NextResponse.json(chileStocksCache);
+  }
+
   const results: ScrapingResult[] = [];
   try {
-    // 1. Obtener la lista de acciones chilenas desde la colección 'stockprices'
     const stockpricesRef = collection(db, 'stockprices');
     const clStocksSnapshot = await getDocs(stockpricesRef);
     const clTickers = clStocksSnapshot.docs
@@ -25,10 +36,12 @@ export async function GET() {
       .map(doc => doc.id);
 
     if (clTickers.length === 0) {
-      return NextResponse.json({ message: 'No hay acciones chilenas para actualizar', success: true });
+      const result = { message: 'No hay acciones chilenas para actualizar', success: true };
+      chileStocksCache = result;
+      chileStocksCacheTimestamp = Date.now();
+      return NextResponse.json(result);
     }
 
-    // 2. Iterar sobre cada ticker y obtener precio desde la API de Yahoo
     for (const ticker of clTickers) {
       const url = `${BASE_URL}${ticker}${SUFFIX}?interval=1d`;
 
@@ -45,7 +58,6 @@ export async function GET() {
 
         const data = await response.json();
 
-        // Extraer el precio del JSON
         const lastprice = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
 
         if (typeof lastprice === 'number' && !isNaN(lastprice)) {
@@ -59,7 +71,6 @@ export async function GET() {
             },
             { merge: true }
           );
-
           results.push({ ticker, success: true, price: lastprice });
         } else {
           results.push({ ticker, success: false, message: 'No se encontró regularMarketPrice' });
@@ -70,13 +81,23 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({
+    const finalResult = {
       message: 'Acciones chilenas actualizadas exitosamente',
       success: true,
       results,
-    });
+    };
+    
+    // Update cache
+    chileStocksCache = finalResult;
+    chileStocksCacheTimestamp = Date.now();
+    
+    return NextResponse.json(finalResult);
+
   } catch (error) {
     console.error('Error general al actualizar las acciones chilenas:', error);
-    return NextResponse.json({ message: 'Error interno del servidor', success: false }, { status: 500 });
+    const errorResult = { message: 'Error interno del servidor', success: false };
+    chileStocksCache = errorResult;
+    chileStocksCacheTimestamp = Date.now();
+    return NextResponse.json(errorResult, { status: 500 });
   }
 }

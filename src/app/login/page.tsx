@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "../contexts/AuthContext"
@@ -19,6 +18,13 @@ export default function LoginPage() {
 
     const success = await login(email, password)
     if (success) {
+      // ✅ Dispara las APIs de actualización en segundo plano
+      // No usamos 'await' para no bloquear la redirección
+      fetch("/api/update-exchange-rate", { cache: "no-store" }).catch(err => console.error("Error updating exchange rate:", err));
+      fetch("/api/update-us-stocks", { cache: "no-store" }).catch(err => console.error("Error updating US stocks:", err));
+      fetch("/api/scrap-bcs", { cache: "no-store" }).catch(err => console.error("Error updating Chile stocks:", err));
+
+      // ✅ Redirige al usuario inmediatamente, sin esperar las llamadas anteriores
       router.push("/")
     } else {
       setError("Credenciales incorrectas. Usa: demo@portfolio.com / demo123")

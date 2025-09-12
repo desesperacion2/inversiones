@@ -7,6 +7,9 @@ import { db } from "../firebase"
 import { useAuth } from "../contexts/AuthContext"
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts"
 
+// Tiempo de cache en milisegundos (5 minutos)
+const CACHE_DURATION = 5 * 60 * 1000
+
 export default function Composicion() {
   const { user, isLoading: isAuthLoading } = useAuth()
   const [portfolioPositions, setPortfolioPositions] = useState<DocumentData[]>([])
@@ -17,6 +20,23 @@ export default function Composicion() {
       if (user && user.id) {
         setIsLoading(true)
         try {
+          // ✅ CHECK CACHE PARA COMPOSICIÓN
+          const cachedComposition = localStorage.getItem(`composition_${user.id}`)
+          const cachedCompositionTime = localStorage.getItem(`compositionTime_${user.id}`)
+          
+          if (cachedComposition && cachedCompositionTime) {
+            const cacheTime = parseInt(cachedCompositionTime)
+            const now = Date.now()
+            
+            if (now - cacheTime < CACHE_DURATION) {
+              // Usar datos cacheados
+              setPortfolioPositions(JSON.parse(cachedComposition))
+              setIsLoading(false)
+              return // ← Salir temprano, no hacer fetch
+            }
+          }
+
+          // ✅ OBTENER DATOS NUEVOS
           const exchangeRateDocRef = doc(db, "exchangerate", "USD_CLP")
           const exchangeRateDocSnap = await getDoc(exchangeRateDocRef)
           const exchangeRate = exchangeRateDocSnap.exists() ? exchangeRateDocSnap.data().value : 1
@@ -76,6 +96,10 @@ export default function Composicion() {
 
           setPortfolioPositions(finalPositions);
 
+          // ✅ GUARDAR EN CACHE
+          localStorage.setItem(`composition_${user.id}`, JSON.stringify(finalPositions))
+          localStorage.setItem(`compositionTime_${user.id}`, Date.now().toString())
+
         } catch (error) {
           console.error("Error al obtener los datos:", error)
         } finally {
@@ -115,7 +139,6 @@ export default function Composicion() {
     )
   }
 
-  // 👇 incluimos el valor CLP para mostrarlo en el tooltip
   const chartData = portfolioPositions.map(p => ({
     name: p.ticker,
     value: p.percentage,
@@ -209,7 +232,7 @@ export default function Composicion() {
                     cy="50%"
                     outerRadius={100}
                     fill="#8884d8"
-                    label={({ name, value }) => `${name}: ${typeof value === 'number' ? value.toFixed(2) : '0.00'}%`} // 👈 etiquetas en %
+                    label={({ name, value }) => `${name}: ${typeof value === 'number' ? value.toFixed(2) : '0.00'}%`}
                   >
                     {chartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -217,7 +240,7 @@ export default function Composicion() {
                   </Pie>
                   <Tooltip 
                     formatter={(_, name, props: any) => [
-                      formatCurrency(props.payload.clpValue), // 👈 valor real en CLP
+                      formatCurrency(props.payload.clpValue),
                       name
                     ]} 
                   />

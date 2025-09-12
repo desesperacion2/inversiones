@@ -2,11 +2,21 @@ import { NextResponse } from 'next/server';
 import { db } from '../../firebase';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 
-export async function GET() {
-  try {
-    const apiKey = '8AJJZYE8ELY517IL'; // Tu API Key implementada directamente en el código
+// Cached variables
+let usStocksCache: { message: string; success: boolean; results?: any[] } | null = null;
+let usStocksCacheTimestamp = 0;
+const CACHE_TTL = 900000; // 5 minutos
 
-    // 1. Get a list of unique US stock tickers from the 'users' collection
+export async function GET() {
+  // Return cached data if still fresh
+  if (usStocksCache && Date.now() - usStocksCacheTimestamp < CACHE_TTL) {
+    console.log("Devolviendo datos de caché para US stocks.");
+    return NextResponse.json(usStocksCache);
+  }
+
+  try {
+    const apiKey = '8AJJZYE8ELY517IL'; 
+
     const usersSnapshot = await getDocs(collection(db, 'users'));
     const usTickers = new Set<string>();
     
@@ -21,16 +31,18 @@ export async function GET() {
     }
 
     if (usTickers.size === 0) {
-      return NextResponse.json({ message: 'No US stocks to update', success: true });
+      const result = { message: 'No US stocks to update', success: true };
+      usStocksCache = result;
+      usStocksCacheTimestamp = Date.now();
+      return NextResponse.json(result);
     }
 
-    // 2. Fetch the latest price for each ticker
     const updatePromises = Array.from(usTickers).map(async (ticker) => {
       const response = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${apiKey}`);
       const data = await response.json();
 
       const globalQuote = data['Global Quote'];
-      if (globalQuote && globalQuote['05. price']) { // Se usa '05. price' para verificar que la data es válida
+      if (globalQuote && globalQuote['05. price']) {
         const lastprice = parseFloat(globalQuote['05. price']);
         const changePercent = globalQuote['10. change percent'] ? parseFloat(globalQuote['10. change percent'].replace('%', '')) : 0;
 
@@ -49,10 +61,19 @@ export async function GET() {
     });
 
     const results = await Promise.all(updatePromises);
-    return NextResponse.json({ message: 'US stocks updated successfully', success: true, results });
+    const finalResult = { message: 'US stocks updated successfully', success: true, results };
+    
+    // Update cache
+    usStocksCache = finalResult;
+    usStocksCacheTimestamp = Date.now();
+    
+    return NextResponse.json(finalResult);
 
   } catch (error) {
     console.error("Error updating US stock prices:", error);
-    return NextResponse.json({ message: 'Internal server error', success: false }, { status: 500 });
+    const errorResult = { message: 'Internal server error', success: false };
+    usStocksCache = errorResult;
+    usStocksCacheTimestamp = Date.now();
+    return NextResponse.json(errorResult, { status: 500 });
   }
 }
