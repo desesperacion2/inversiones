@@ -399,7 +399,7 @@ export default function Composicion() {
                             }`}
                           ></div>
                           <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate">
+                            <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate max-w-[150px]">
                               {position.name}
                             </h3>
                             <p className="text-xs text-gray-600 dark:text-gray-400">
